@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security;
+using System.Security.AccessControl;
+using System.Security.Permissions;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -30,7 +35,12 @@ namespace EUpdate
             "eagle.exe",
             "eaglecon.exe"
         };
-        ConcurrentBag<string> eagleFiles = new ConcurrentBag<string>();
+        private List<string> forbiddenFolders = new List<string>
+        {
+            "Windows",
+            "Users"
+        };
+        List<string> eagleFiles = new List<string>();
 
         public MainWindow()
         {
@@ -81,38 +91,78 @@ namespace EUpdate
         // searches for an EAGLE install on a logical drive
         private void SearchForEagle(string driveName)
         {
-            DirectoryInfo drInfo = new DirectoryInfo(driveName);
-            WalkDirectoryTree(drInfo,"eagle");
-            foreach (string file in eagleFiles)
+            // show the progress bar
+            scanPB.Visibility = Visibility.Visible;
+            BackgroundWorker bw = new BackgroundWorker();
+            bw.DoWork += delegate
             {
-                Debug.WriteLine("Scan found " + file);
+                WalkDirectoryTree(driveName, ProcessFile);
+                foreach (string file in eagleFiles)
+                {
+                    Debug.WriteLine("Scan found " + file);
+                }
+            };
+            bw.RunWorkerCompleted += delegate
+                {
+                    scanPB.Visibility = Visibility.Hidden;
+                    PostProcessFiles(eagleFiles);
+                };
+            bw.RunWorkerAsync();
+        }
+
+        private void ProcessFile(string file)
+        {
+            if (validNames.Any(file.Contains))
+            {
+                eagleFiles.Add(file);
             }
         }
 
-
         // credit to this solution
         // https://codereview.stackexchange.com/questions/74156/fastest-way-searching-specific-files
-        private void WalkDirectoryTree(DirectoryInfo dr, string searchname)
+        private void WalkDirectoryTree(string dir, Action<string> fileAction)
         {
-            System.IO.FileInfo[] files = null;
-            System.IO.DirectoryInfo[] subDirs = null;
-            try
+            foreach (string file in Directory.GetFiles(dir))
             {
-                files = dr.GetFiles(searchname + "*.exe");
+                fileAction(file);
             }
-            catch (Exception ex)
+            foreach (string subDir in Directory.GetDirectories(dir))
             {
-                MessageBox.Show(ex.Message);
-            }
-
-            if (files != null)
-            {
-                foreach (FileInfo fi in files)
+                if (!forbiddenFolders.Any(subDir.Contains))
                 {
-                    eagleFiles.Add(fi.Name);
+                    try
+                    {
+                        WalkDirectoryTree(subDir, fileAction);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.Message);
+                    }
                 }
-                subDirs = dr.GetDirectories();
-                Parallel.ForEach(subDirs, dir => WalkDirectoryTree(dir, searchname));
+                else
+                {
+                    Debug.WriteLine("The folder " + subDir + "is not scanned.");
+                }
+            }
+        }
+
+        private void PostProcessFiles(List<string> files)
+        {
+            List<FileInfo> fileList = new List<FileInfo>();
+            int dirsDetected = 0;
+            foreach (var file in files)
+            {
+                fileList.Add(new FileInfo(file));
+            }
+            dirsDetected = fileList.Select(x => x.DirectoryName).Distinct().Count();
+            if (dirsDetected == 1)
+            {
+                locationTB.Text = fileList[0].DirectoryName;
+            }
+            else
+            {
+                MessageBox.Show(
+                    "More than one possible install location detected. Please enter the install location manually!");
             }
         }
     }

@@ -33,6 +33,7 @@
                         </TransformGroup>
                     </CheckBox.RenderTransform>
                 </CheckBox>
+                <ProgressBar x:Name="scanPB" HorizontalAlignment="Left" Height="23" Margin="445,32,0,0" VerticalAlignment="Top" Width="320" IsIndeterminate="True" Visibility="Hidden"/>
             </Grid>
         </GroupBox>
         <Menu Height="31" VerticalAlignment="Top">
