@@ -34,6 +34,8 @@
                     </CheckBox.RenderTransform>
                 </CheckBox>
                 <ProgressBar x:Name="scanPB" HorizontalAlignment="Left" Height="23" Margin="445,32,0,0" VerticalAlignment="Top" Width="320" IsIndeterminate="True" Visibility="Hidden"/>
+                <Button x:Name="installB" Content="Install update" HorizontalAlignment="Left" Margin="607,97,0,0" VerticalAlignment="Top" Width="155" IsDefault="True" IsEnabled="False" Click="installB_Click"/>
+                <ProgressBar x:Name="dlBar" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="602" Margin="0,96,0,0" Visibility="Hidden"/>
             </Grid>
         </GroupBox>
         <Menu Height="31" VerticalAlignment="Top">

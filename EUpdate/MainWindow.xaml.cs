@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Security;
 using System.Security.AccessControl;
 using System.Security.Permissions;
@@ -20,6 +21,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using EUpdate.Tools;
+using EUpdate.Update;
 using Microsoft.Win32;
 
 namespace EUpdate
@@ -41,6 +44,9 @@ namespace EUpdate
             "Users"
         };
         List<string> eagleFiles = new List<string>();
+
+        private BackgroundWorker bw;
+        private UpdateManager _updateManager;
 
         public MainWindow()
         {
@@ -68,6 +74,7 @@ namespace EUpdate
                         {
                             // if yes proceed
                             locationTB.Text = eagleDir;
+                            installB.IsEnabled = true;
                             return;
                         }
                     }
@@ -93,7 +100,8 @@ namespace EUpdate
         {
             // show the progress bar
             scanPB.Visibility = Visibility.Visible;
-            BackgroundWorker bw = new BackgroundWorker();
+            bw = new BackgroundWorker();
+            bw.WorkerSupportsCancellation = true;
             bw.DoWork += delegate
             {
                 WalkDirectoryTree(driveName, ProcessFile);
@@ -106,6 +114,7 @@ namespace EUpdate
                 {
                     scanPB.Visibility = Visibility.Hidden;
                     PostProcessFiles(eagleFiles);
+                    bw.CancelAsync();
                 };
             bw.RunWorkerAsync();
         }
@@ -158,12 +167,36 @@ namespace EUpdate
             if (dirsDetected == 1)
             {
                 locationTB.Text = fileList[0].DirectoryName;
+                installB.IsEnabled = true;
             }
             else
             {
                 MessageBox.Show(
                     "More than one possible install location detected. Please enter the install location manually!");
             }
+        }
+
+        private void installB_Click(object sender, RoutedEventArgs e)
+        {
+            _updateManager = new UpdateManager(keepVerCB.IsChecked, patchCB.IsChecked);
+            _updateManager.GetUpdateURL();
+            dlBar.Visibility = Visibility.Visible;
+            using (WebClient wc = new WebClient())
+            {
+                wc.DownloadProgressChanged += Wc_DownloadProgressChanged;
+                wc.DownloadFileCompleted += Wc_DownloadFileCompleted;
+                wc.DownloadFileAsync(new System.Uri(_updateManager.GetUpdateFileLink()), System.IO.Path.Combine(KnownFolders.GetPath(KnownFolder.Downloads),"eagleInstall.exe"));
+            }
+        }
+
+        private void Wc_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
+        {
+            dlBar.Visibility = Visibility.Hidden;
+        }
+
+        private void Wc_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+        {
+            dlBar.Value = e.ProgressPercentage;
         }
     }
 }
